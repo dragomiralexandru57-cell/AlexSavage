@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IIoT Track — Element Fixare Traductor Ultrasonic</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a1628;--bg2:#0f1f38;--bg3:#162540;--bg4:#1a2d4a;
+  --border:#1e3d6e;--border2:#2a5298;
+  --acc:#f5c842;--blue:#3b82f6;--green:#22c55e;--red:#ef4444;--amber:#f59e0b;
+  --text:#e2eaf4;--text2:#94a3b8;--text3:#475569;
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:var(--sans);font-size:14px;background:var(--bg);color:var(--text);min-height:100vh;}
+body.alert-flash{animation:bodyFlash 0.6s ease 1;}
+@keyframes bodyFlash{0%,100%{background:var(--bg)}50%{background:#2a0808}}
+
+/* TOPBAR */
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 16px;height:52px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:100;}
+.tlogo{font-size:13px;font-weight:600;color:var(--acc);letter-spacing:0.08em;border-right:1px solid var(--border);padding-right:12px;white-space:nowrap;}
+.ttitle{font-size:11px;color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ttitle strong{color:var(--text);}
+.lang-btn{padding:5px 12px;border:1px solid var(--border);border-radius:4px;cursor:pointer;font-size:12px;background:var(--bg3);color:var(--text2);transition:all 0.15s;white-space:nowrap;}
+.lang-btn.active{border-color:var(--acc);color:var(--acc);background:rgba(245,200,66,0.07);}
+.doc-btn{padding:5px 12px;border:1px solid var(--acc);border-radius:4px;cursor:pointer;font-size:12px;background:rgba(245,200,66,0.07);color:var(--acc);font-weight:600;text-decoration:none;white-space:nowrap;}
+#clk{font-family:var(--mono);font-size:11px;color:var(--text2);border-left:1px solid var(--border);padding-left:10px;white-space:nowrap;}
+
+/* ALERT */
+.alert-bar{display:none;background:rgba(239,68,68,0.1);border-bottom:1px solid var(--red);padding:8px 16px;align-items:center;gap:8px;}
+.alert-bar.show{display:flex;}
+.alert-txt{color:var(--red);font-weight:600;font-size:13px;flex:1;}
+.alert-close{background:none;border:1px solid var(--red);color:var(--red);padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;font-weight:600;}
+
+/* DESKTOP LAYOUT */
+.layout{display:grid;grid-template-columns:1fr 260px;gap:1px;background:var(--border);min-height:calc(100vh - 52px);}
+.left{background:var(--bg);padding:14px;overflow-y:auto;}
+.right{background:var(--bg2);padding:12px;overflow-y:auto;}
+
+/* MOBILE LAYOUT */
+@media(max-width:768px){
+  .topbar{height:auto;padding:10px 14px;flex-wrap:wrap;gap:8px;}
+  .ttitle{display:none;}
+  .tlogo{border-right:none;padding-right:0;font-size:14px;}
+  #clk{border-left:none;padding-left:0;}
+  .layout{grid-template-columns:1fr;gap:0;}
+  .right{display:none;}
+  .left{padding:12px;}
+  .desktop-only{display:none!important;}
+  .mobile-only{display:block!important;}
+  .ctrl-row{flex-wrap:wrap;}
+  .stations{overflow-x:auto;padding-bottom:6px;}
+  .stn{min-width:72px;}
+}
+
+.mobile-only{display:none;}
+
+/* CONTROLS */
+.ctrl-row{display:flex;align-items:center;gap:6px;margin-bottom:12px;background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:8px 10px;flex-wrap:wrap;}
+.ctrl-lbl{font-size:10px;color:var(--text3);letter-spacing:0.1em;text-transform:uppercase;}
+.spd-btn{padding:6px 14px;border:1px solid var(--border);border-radius:4px;cursor:pointer;font-family:var(--mono);font-size:12px;background:var(--bg3);color:var(--text2);transition:all 0.15s;}
+.spd-btn:hover,.spd-btn.active{border-color:var(--acc);color:var(--acc);background:rgba(245,200,66,0.08);}
+.reset-btn{padding:6px 14px;border:1px solid var(--border2);border-radius:4px;cursor:pointer;font-size:12px;background:var(--bg3);color:var(--text2);transition:all 0.15s;margin-left:auto;}
+.reset-btn:hover{border-color:var(--red);color:var(--red);}
+
+/* PRODUCTION LINE */
+.line-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:14px 10px;margin-bottom:10px;}
+.line-hdr{font-size:10px;font-weight:600;color:var(--text3);letter-spacing:0.14em;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+.line-hdr::after{content:'';flex:1;height:1px;background:var(--border);}
+.line-hdr span{color:var(--acc);}
+.stations{display:flex;align-items:flex-end;gap:0;}
+.stn{flex:1;position:relative;padding-top:30px;}
+.stn-box{background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:8px 4px;text-align:center;min-height:70px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;transition:all 0.3s;position:relative;overflow:hidden;}
+.stn-box.hl-blue{border-color:var(--blue);background:rgba(59,130,246,0.07);}
+.stn-box.hl-amber{border-color:var(--amber);background:rgba(245,158,11,0.07);}
+.stn-box.hl-green{border-color:var(--green);background:rgba(34,197,94,0.06);}
+.stn-box.hl-red{border-color:var(--red);background:rgba(239,68,68,0.07);}
+.stn-box.hl-acc{border-color:var(--acc);background:rgba(245,200,66,0.06);}
+.stn-num{font-size:10px;font-family:var(--mono);color:var(--text3);font-weight:600;}
+.stn-name{font-size:11px;font-weight:500;color:var(--text2);line-height:1.2;}
+.stn-name2{font-size:10px;color:var(--text3);line-height:1.2;}
+.stn-prog{position:absolute;bottom:0;left:0;height:3px;background:var(--blue);border-radius:0 0 4px 4px;transition:width 0.4s linear;}
+.stn-prog.amber{background:var(--amber);}
+.arrow{width:14px;flex-shrink:0;text-align:center;color:var(--text3);font-size:10px;margin-bottom:26px;}
+
+/* PIECE INDICATORS */
+.piece{position:absolute;top:3px;left:50%;transform:translateX(-50%);width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;border:2px solid;z-index:5;}
+.piece.blue{background:#185FA5;border-color:var(--blue);color:#fff;animation:pp 1.5s infinite;}
+.piece.amber{background:#854F0B;border-color:var(--amber);color:#fff;animation:pp2 1.5s infinite;}
+.piece.green{background:#27500A;border-color:var(--green);color:#fff;}
+.piece.red{background:#791F1F;border-color:var(--red);color:#fff;}
+.piece.yellow{background:#633806;border-color:var(--acc);color:#0a1628;animation:pp3 1.2s infinite;}
+@keyframes pp{0%,100%{box-shadow:0 0 0 0 rgba(59,130,246,0.5)}50%{box-shadow:0 0 0 5px rgba(59,130,246,0)}}
+@keyframes pp2{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,0.5)}50%{box-shadow:0 0 0 5px rgba(245,158,11,0)}}
+@keyframes pp3{0%,100%{box-shadow:0 0 0 0 rgba(245,200,66,0.5)}50%{box-shadow:0 0 0 5px rgba(245,200,66,0)}}
+
+/* HIGHLIGHT CARD */
+.hcard{background:var(--bg2);border:2px solid var(--acc);border-radius:6px;padding:14px;margin-bottom:12px;display:none;}
+.hcard.show{display:block;animation:cardIn 0.35s ease;}
+@keyframes cardIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+.hc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.hc-serial{font-family:var(--mono);font-size:16px;font-weight:600;color:var(--acc);}
+.badge{display:inline-flex;padding:3px 8px;border-radius:3px;font-size:10px;font-weight:600;}
+.badge.blue{background:rgba(59,130,246,0.12);color:var(--blue);border:1px solid rgba(59,130,246,0.2);}
+.badge.grn{background:rgba(34,197,94,0.1);color:var(--green);border:1px solid rgba(34,197,94,0.2);}
+.badge.red{background:rgba(239,68,68,0.1);color:var(--red);border:1px solid rgba(239,68,68,0.2);}
+.badge.amb{background:rgba(245,158,11,0.1);color:var(--amber);border:1px solid rgba(245,158,11,0.2);}
+.badge.acc{background:rgba(245,200,66,0.1);color:var(--acc);border:1px solid rgba(245,200,66,0.2);}
+.hc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.hc-item{background:var(--bg3);border-radius:4px;padding:8px;}
+.hc-lbl{font-size:10px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:3px;}
+.hc-val{font-family:var(--mono);font-size:12px;color:var(--text);font-weight:500;}
+.hc-val.acc{color:var(--acc);}
+.hc-val.blue{color:var(--blue);}
+.hc-val.grn{color:var(--green);}
+.hc-val.red{color:var(--red);}
+.hc-val.amb{color:var(--amber);}
+
+/* MOBILE PIECE CARD */
+.mob-card{display:none;background:var(--bg2);border-radius:12px;padding:20px;margin-bottom:16px;border:2px solid var(--acc);}
+@media(max-width:768px){
+  .mob-card.show{display:block;animation:cardIn 0.35s ease;}
+  .mob-serial{font-family:var(--mono);font-size:22px;font-weight:700;color:var(--acc);margin-bottom:6px;}
+  .mob-badge{display:inline-block;padding:6px 14px;border-radius:5px;font-size:13px;font-weight:700;margin-bottom:14px;}
+  .mob-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+  .mob-item{background:var(--bg3);border-radius:8px;padding:12px;}
+  .mob-lbl{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;}
+  .mob-val{font-family:var(--mono);font-size:14px;font-weight:600;}
+  .mob-doc-btn{display:block;width:100%;padding:14px;background:rgba(245,200,66,0.1);border:1px solid var(--acc);border-radius:8px;color:var(--acc);font-size:14px;font-weight:600;text-align:center;text-decoration:none;margin-top:10px;}
+}
+
+/* QR SECTION */
+.qr-section{background:var(--bg2);border:1px solid var(--border);border-radius:5px;padding:12px;margin-top:8px;}
+.qr-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-top:8px;}
+.qr-card{background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:6px 4px;text-align:center;cursor:pointer;transition:all 0.2s;}
+.qr-card:hover,.qr-card.active{border-color:var(--acc);background:rgba(245,200,66,0.06);}
+.qr-id{font-family:var(--mono);font-size:10px;color:var(--acc);font-weight:600;margin-top:3px;}
+.qr-st{font-size:9px;margin-top:2px;}
+
+/* RIGHT PANEL */
+.rp-sec{margin-bottom:12px;}
+.rp-title{font-size:10px;font-weight:600;color:var(--text3);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:7px;padding-bottom:4px;border-bottom:1px solid var(--border);}
+.ir{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(30,61,110,0.18);font-size:12px;}
+.ir:last-child{border-bottom:none;}
+.il{color:var(--text2);}
+.iv{font-family:var(--mono);font-weight:500;color:var(--text);}
+.iv.acc{color:var(--acc);}
+.iv.grn{color:var(--green);}
+.iv.red{color:var(--red);}
+.iv.amb{color:var(--amber);}
+.iv.blue{color:var(--blue);}
+.kpi2{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:10px;}
+.kp{background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:8px 10px;}
+.kp-l{font-size:10px;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:3px;}
+.kp-v{font-size:22px;font-weight:600;font-family:var(--mono);}
+.kp-v.grn{color:var(--green);}
+.kp-v.red{color:var(--red);}
+.kp-v.acc{color:var(--acc);}
+.kp-v.blue{color:var(--blue);}
+.kp-s{font-size:10px;color:var(--text3);margin-top:2px;}
+.wear-item{margin-bottom:7px;}
+.wear-hdr{display:flex;justify-content:space-between;margin-bottom:2px;font-size:11px;}
+.wear-lbl{color:var(--text2);}
+.wear-val{font-family:var(--mono);font-weight:500;}
+.pb{height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;}
+.pf{height:100%;border-radius:2px;transition:width 0.5s;}
+.pf.grn{background:var(--green);}
+.pf.amb{background:var(--amber);}
+.pf.red{background:var(--red);}
+
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-thumb{background:var(--border2);}
+</style>
+</head>
+<body>
+
+<div class="alert-bar" id="alertBar">
+  <span style="color:var(--red);font-size:16px">&#9888;</span>
+  <span class="alert-txt" id="alertTxt"></span>
+  <button class="alert-close" onclick="closeAlert()" data-ro="CONFIRMARE" data-en="CONFIRM">CONFIRMARE</button>
+</div>
+
+<div class="topbar">
+  <div class="tlogo">IIoT TRACK</div>
+  <div class="ttitle"><strong data-ro="Trasabilitate Digitală" data-en="Digital Traceability">Trasabilitate Digitală</strong> — Element fixare traductor ultrasonic | <span style="font-family:var(--mono);color:var(--acc)">LOT-2026-641CA</span></div>
+  <div style="display:flex;gap:5px">
+    <button class="lang-btn active" id="bRO" onclick="setLang('ro')">&#127775; RO</button>
+    <button class="lang-btn" id="bEN" onclick="setLang('en')">&#127757; EN</button>
+  </div>
+  <a class="doc-btn desktop-only" href="DESEN_PIESA_FINAL.pdf" target="_blank">&#128196; <span data-ro="Doc. tehnică" data-en="Tech docs">Doc. tehnică</span></a>
+  <div id="clk" class="desktop-only">00:00:00</div>
+</div>
+
+<div class="layout">
+<div class="left">
+
+  <!-- MOBILE PIECE CARD -->
+  <div class="mob-card" id="mobCard">
+    <div style="font-size:11px;color:var(--text3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px" data-ro="PIESĂ SCANATĂ" data-en="SCANNED PART">PIESĂ SCANATĂ</div>
+    <div class="mob-serial" id="mobSerial">---</div>
+    <div id="mobBadge" class="mob-badge badge blue">---</div>
+    <div class="mob-grid">
+      <div class="mob-item"><div class="mob-lbl" data-ro="Material" data-en="Material">Material</div><div class="mob-val" id="mobMat" style="color:var(--acc)">---</div></div>
+      <div class="mob-item"><div class="mob-lbl" data-ro="Operație" data-en="Operation">Operație</div><div class="mob-val" id="mobOp" style="color:var(--blue)">---</div></div>
+      <div class="mob-item"><div class="mob-lbl">Von Mises</div><div class="mob-val" id="mobVM">---</div></div>
+      <div class="mob-item"><div class="mob-lbl">Factor FS</div><div class="mob-val" id="mobFS">---</div></div>
+      <div class="mob-item"><div class="mob-lbl">END</div><div class="mob-val" id="mobEnd">---</div></div>
+      <div class="mob-item"><div class="mob-lbl" data-ro="Cost" data-en="Cost">Cost</div><div class="mob-val" id="mobCost" style="color:var(--acc)">---</div></div>
+    </div>
+    <a class="mob-doc-btn" href="DESEN_PIESA_FINAL.pdf" target="_blank">&#128196; <span data-ro="Documentație tehnică" data-en="Technical documentation">Documentație tehnică</span></a>
+  </div>
+
+  <!-- DESKTOP HIGHLIGHT CARD -->
+  <div class="hcard desktop-only" id="hcard">
+    <div class="hc-top">
+      <div>
+        <div style="font-size:9px;color:var(--text3);letter-spacing:0.1em;margin-bottom:2px" data-ro="PIESĂ SELECTATĂ" data-en="SELECTED PART">PIESĂ SELECTATĂ</div>
+        <div class="hc-serial" id="hcSer">---</div>
+      </div>
+      <div id="hcBadge" class="badge blue">---</div>
+    </div>
+    <div class="hc-grid">
+      <div class="hc-item"><div class="hc-lbl" data-ro="Material / Tehnologie" data-en="Material / Tech">Material / Tehnologie</div><div class="hc-val acc" id="hcMat">---</div></div>
+      <div class="hc-item"><div class="hc-lbl" data-ro="Operație curentă" data-en="Current op.">Operație curentă</div><div class="hc-val blue" id="hcOp">---</div></div>
+      <div class="hc-item"><div class="hc-lbl">Von Mises max</div><div class="hc-val" id="hcVM">---</div></div>
+      <div class="hc-item"><div class="hc-lbl">Factor siguranță</div><div class="hc-val" id="hcFS">---</div></div>
+      <div class="hc-item"><div class="hc-lbl">Inspecție END</div><div class="hc-val" id="hcEnd">---</div></div>
+      <div class="hc-item"><div class="hc-lbl" data-ro="Cost piesă" data-en="Part cost">Cost piesă</div><div class="hc-val acc" id="hcCost">---</div></div>
+    </div>
+  </div>
+
+  <!-- CONTROLS (desktop only) -->
+  <div class="ctrl-row desktop-only">
+    <span class="ctrl-lbl" data-ro="VITEZĂ:" data-en="SPEED:">VITEZĂ:</span>
+    <button class="spd-btn" onclick="setSpd(1,this)">1×</button>
+    <button class="spd-btn active" onclick="setSpd(2,this)">2×</button>
+    <button class="spd-btn" onclick="setSpd(5,this)">5×</button>
+    <button class="spd-btn" onclick="setSpd(10,this)">10×</button>
+    <button class="reset-btn" onclick="resetSim()" data-ro="↺ Reset" data-en="↺ Reset">↺ Reset</button>
+  </div>
+
+  <!-- CNC LINE -->
+  <div class="line-wrap">
+    <div class="line-hdr"><span>CNC</span> 20MoNi35 | Mazak CAMWARE T Plus</div>
+    <div class="stations" id="cncLine"></div>
+  </div>
+
+  <!-- FDM LINE -->
+  <div class="line-wrap">
+    <div class="line-hdr"><span>FDM</span> PLA | Bambu Lab A1</div>
+    <div class="stations" id="fdmLine"></div>
+  </div>
+
+  <!-- QR CODES (desktop only) -->
+  <div class="qr-section desktop-only">
+    <div style="font-size:10px;font-weight:600;color:var(--text2)" data-ro="Coduri QR — click pentru detalii" data-en="QR Codes — click for details">Coduri QR — click pentru detalii</div>
+    <div class="qr-grid" id="qrGrid"></div>
+  </div>
+
+</div>
+
+<!-- RIGHT PANEL (desktop only) -->
+<div class="right desktop-only">
+  <div class="rp-sec">
+    <div class="rp-title" data-ro="STATUS LOT" data-en="LOT STATUS">STATUS LOT</div>
+    <div class="kpi2">
+      <div class="kp"><div class="kp-l" data-ro="FINITE" data-en="DONE">FINITE</div><div class="kp-v grn" id="kDone">0</div><div class="kp-s" data-ro="acceptate" data-en="accepted">acceptate</div></div>
+      <div class="kp"><div class="kp-l" data-ro="REBUTURI" data-en="REJECTS">REBUTURI</div><div class="kp-v red" id="kRej">0</div><div class="kp-s" data-ro="neconforme" data-en="nonconf.">neconforme</div></div>
+      <div class="kp"><div class="kp-l" data-ro="ÎN LUCRU" data-en="IN PROG">ÎN LUCRU</div><div class="kp-v blue" id="kProg" style="color:var(--blue)">4</div><div class="kp-s" data-ro="piese" data-en="parts">piese</div></div>
+      <div class="kp"><div class="kp-l" data-ro="TOTAL" data-en="TOTAL">TOTAL</div><div class="kp-v acc">6</div><div class="kp-s" data-ro="piese lot" data-en="lot parts">piese lot</div></div>
+    </div>
+  </div>
+  <div class="rp-sec">
+    <div class="rp-title" data-ro="STOC" data-en="STOCK">STOC</div>
+    <div class="ir"><span class="il">20MoNi35 Ø60×55mm</span><span class="iv acc" id="sCNC">48 buc.</span></div>
+    <div class="ir"><span class="il">Filament PLA 1.75mm</span><span class="iv acc" id="sPLA">3.20 kg</span></div>
+    <div class="ir"><span class="il" data-ro="Scule CNC" data-en="CNC tools">Scule CNC</span><span class="iv">12 seturi</span></div>
+    <div class="ir"><span class="il" data-ro="Kit PT" data-en="PT kits">Kit PT</span><span class="iv">6 kit-uri</span></div>
+  </div>
+  <div class="rp-sec">
+    <div class="rp-title" data-ro="COSTURI" data-en="COSTS">COSTURI</div>
+    <div class="ir"><span class="il">CNC / buc.</span><span class="iv acc">11.49 €</span></div>
+    <div class="ir"><span class="il">FDM / buc.</span><span class="iv acc">3.30 €</span></div>
+    <div class="ir"><span class="il" data-ro="Rebuturi CNC" data-en="CNC rejects">Rebuturi CNC</span><span class="iv red" id="rCNC">0.00 €</span></div>
+    <div class="ir"><span class="il" data-ro="Rebuturi FDM" data-en="FDM rejects">Rebuturi FDM</span><span class="iv red" id="rFDM">0.00 €</span></div>
+    <div class="ir" style="border-top:1px solid var(--border);padding-top:6px;margin-top:3px"><span class="il"><strong data-ro="Total lot" data-en="Lot total">Total lot</strong></span><span class="iv acc" style="font-size:14px;font-weight:700" id="tTotal">88.44 €</span></div>
+  </div>
+  <div class="rp-sec">
+    <div class="rp-title" data-ro="UZURĂ SCULE CNC" data-en="CNC TOOL WEAR">UZURĂ SCULE CNC</div>
+    <div id="wearList"></div>
+  </div>
+  <div class="rp-sec">
+    <div class="rp-title" data-ro="FILAMENT PLA" data-en="PLA FILAMENT">FILAMENT PLA</div>
+    <div class="ir"><span class="il" data-ro="Consum estimat" data-en="Est. consumption">Consum estimat</span><span class="iv amb" id="plaUsed">0 g</span></div>
+    <div style="margin-top:5px">
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-bottom:3px"><span data-ro="Nivel bobină" data-en="Spool level">Nivel bobină</span><span id="plaLvl">100%</span></div>
+      <div class="pb"><div class="pf amb" id="plaBar" style="width:100%"></div></div>
+    </div>
+  </div>
+  <div class="rp-sec">
+    <div class="rp-title">MEF — CNC vs FDM</div>
+    <div class="ir"><span class="il">Von Mises CNC</span><span class="iv blue">41.22 MPa</span></div>
+    <div class="ir"><span class="il">Von Mises FDM</span><span class="iv amb">41.26 MPa</span></div>
+    <div class="ir"><span class="il">FS — CNC</span><span class="iv grn">15.0</span></div>
+    <div class="ir"><span class="il">FS — FDM</span><span class="iv red">1.21</span></div>
+  </div>
+  <div style="font-size:10px;color:var(--text3);margin-top:8px;line-height:1.7">Dragomir Alexandru-Cristian<br>641 CA — UPB FIIR 2026<br>Coord.: Dan Florin Nițoi</div>
+</div>
+</div>
+
+<script>
+const isMobile=()=>window.innerWidth<=768;
+
+const CNC_STS=[
+  {id:'c0',num:'OP.1',name:'Strunjire',name2:'frontală'},
+  {id:'c1',num:'OP.2',name:'Strunjire',name2:'int./alezare'},
+  {id:'c2',num:'OP.3',name:'Găurire',name2:'Ø3.4mm'},
+  {id:'c3',num:'OP.4',name:'Filetare',name2:'M4×0.7'},
+  {id:'c4',num:'OP.5',name:'Frezare',name2:'plane lat.'},
+  {id:'c5',num:'END',name:'Inspecție',name2:'EV+PT+MT'},
+  {id:'c6',num:'OK',name:'Livrare',name2:'acceptat'},
+];
+const FDM_STS=[
+  {id:'f0',num:'S.1',name:'Pregătire',name2:'STL'},
+  {id:'f1',num:'S.2',name:'Slicing',name2:'parametri'},
+  {id:'f2',num:'S.3',name:'Imprimare',name2:'~90min'},
+  {id:'f3',num:'S.4',name:'Răcire',name2:'detașare'},
+  {id:'f4',num:'S.5',name:'Post-proc.',name2:'suporți'},
+  {id:'f5',num:'END',name:'Inspecție',name2:'EV+PT'},
+  {id:'f6',num:'OK',name:'Livrare',name2:'acceptat'},
+];
+
+const PIECES={
+  'EFT-2026-001':{type:'cnc',st:2,prog:45,color:'blue',stRO:'În prelucrare CNC',stEN:'CNC machining',mat:'20MoNi35 / CNC',vm:'41.22 MPa',fs:'15.0',end:'—',cost:'11.49 €',bc:'blue',rej:false,done:false},
+  'EFT-2026-002':{type:'cnc',st:5,prog:60,color:'yellow',stRO:'La inspecție END',stEN:'NDT inspection',mat:'20MoNi35 / CNC',vm:'41.22 MPa',fs:'15.0',end:'În curs',cost:'11.49 €',bc:'acc',rej:false,done:false},
+  'EFT-2026-003':{type:'cnc',st:6,prog:100,color:'green',stRO:'Acceptată — livrare',stEN:'Accepted — delivery',mat:'20MoNi35 / CNC',vm:'41.22 MPa',fs:'15.0',end:'EV✓ PT✓ MT✓',cost:'11.49 €',bc:'grn',rej:false,done:true},
+  'EFT-2026-004':{type:'fdm',st:2,prog:35,color:'amber',stRO:'În imprimare FDM',stEN:'FDM printing',mat:'PLA / FDM',vm:'41.26 MPa',fs:'1.21',end:'—',cost:'3.30 €',bc:'amb',rej:false,done:false},
+  'EFT-2026-005':{type:'fdm',st:5,prog:80,color:'yellow',stRO:'La inspecție END',stEN:'NDT inspection',mat:'PLA / FDM',vm:'41.26 MPa',fs:'1.21',end:'În curs',cost:'3.30 €',bc:'acc',rej:false,done:false},
+  'EFT-2026-006':{type:'fdm',st:3,prog:0,color:'red',stRO:'REBUT — neconformă',stEN:'REJECTED — nonconforming',mat:'PLA / FDM',vm:'41.26 MPa',fs:'1.21',end:'PT✗ delaminare',cost:'3.30 €',bc:'red',rej:true,done:false},
+};
+
+let lang='ro',simSpd=2,activeId=null,tick=0,wearLvl=[18,12,25,8,15],plaUsed=0,alertShown=false;
+
+function buildLine(cid,sts,type){
+  const el=document.getElementById(cid);if(!el)return;
+  let h='';
+  sts.forEach((s,i)=>{
+    const entry=Object.entries(PIECES).find(([id,p])=>p.type===type&&p.st===i);
+    const hlCls=entry?'hl-'+(entry[1].color==='yellow'?'acc':entry[1].color==='blue'?'blue':entry[1].color==='green'?'green':entry[1].color==='red'?'red':'amber'):'';
+    h+=`<div class="stn">`;
+    if(entry){const[pid,pd]=entry;h+=`<div class="piece ${pd.color}" id="pc-${pid}">${pid.slice(-1)}</div>`;}
+    else h+=`<div style="height:24px"></div>`;
+    h+=`<div class="stn-box ${hlCls}" id="sb-${s.id}">
+      <div class="stn-num">${s.num}</div>
+      <div class="stn-name">${s.name}</div>
+      <div class="stn-name2">${s.name2}</div>
+      ${entry?`<div class="stn-prog${type==='fdm'?' amber':''}" id="sp-${entry[0]}" style="width:${entry[1].prog}%"></div>`:''}
+    </div></div>`;
+    if(i<sts.length-1)h+=`<div class="arrow">&#8250;</div>`;
+  });
+  el.innerHTML=h;
+}
+
+function buildQR(){
+  const el=document.getElementById('qrGrid');if(!el)return;
+  el.innerHTML=Object.entries(PIECES).map(([id,p])=>{
+    const c=p.rej?'#ef4444':p.done?'#22c55e':p.color==='yellow'?'#f5c842':p.color==='amber'?'#f59e0b':'#3b82f6';
+    return `<div class="qr-card${activeId===id?' active':''}" onclick="selectPiece('${id}')">
+      <svg width="48" height="48" viewBox="0 0 48 48"><rect width="48" height="48" fill="white" rx="2"/>
+      <rect x="3" y="3" width="14" height="14" fill="none" stroke="${c}" stroke-width="1.5" rx="1"/>
+      <rect x="31" y="3" width="14" height="14" fill="none" stroke="${c}" stroke-width="1.5" rx="1"/>
+      <rect x="3" y="31" width="14" height="14" fill="none" stroke="${c}" stroke-width="1.5" rx="1"/>
+      <rect x="5" y="5" width="10" height="10" fill="${c}" rx="1"/>
+      <rect x="33" y="5" width="10" height="10" fill="${c}" rx="1"/>
+      <rect x="5" y="33" width="10" height="10" fill="${c}" rx="1"/>
+      <rect x="22" y="6" width="3" height="3" fill="#333"/><rect x="27" y="6" width="3" height="3" fill="#333"/>
+      <rect x="22" y="11" width="3" height="3" fill="#333"/><rect x="27" y="15" width="3" height="3" fill="#333"/>
+      <rect x="22" y="22" width="5" height="5" fill="${c}" rx="0.5"/>
+      <rect x="29" y="22" width="3" height="3" fill="#333"/><rect x="34" y="27" width="3" height="3" fill="#333"/>
+      <rect x="22" y="35" width="3" height="3" fill="#333"/><rect x="27" y="39" width="3" height="3" fill="#333"/>
+      <rect x="34" y="35" width="3" height="3" fill="#333"/><rect x="39" y="39" width="3" height="3" fill="#333"/>
+      </svg>
+      <div class="qr-id">${id}</div>
+      <div class="qr-st" style="color:${c}">${lang==='ro'?p.stRO.split('—')[0].trim():p.stEN.split('—')[0].trim()}</div>
+    </div>`;
+  }).join('');
+}
+
+function buildWear(){
+  const tools=['CNMG T1','CCMT T2','DTX404 T3','TD814 T4','G9F42 T5'];
+  const el=document.getElementById('wearList');if(!el)return;
+  el.innerHTML=tools.map((t,i)=>{
+    const v=wearLvl[i];const cls=v<30?'grn':v<65?'amb':'red';const col=v<30?'var(--green)':v<65?'var(--amber)':'var(--red)';
+    return `<div class="wear-item"><div class="wear-hdr"><span class="wear-lbl">${t}</span><span class="wear-val" style="color:${col}">${v}%</span></div><div class="pb"><div class="pf ${cls}" style="width:${v}%"></div></div></div>`;
+  }).join('');
+}
+
+function selectPiece(id){
+  activeId=id;
+  const p=PIECES[id];if(!p)return;
+  const sts=p.type==='cnc'?CNC_STS:FDM_STS;
+  const st=sts[p.st];
+  const stText=lang==='ro'?p.stRO:p.stEN;
+
+  if(isMobile()){
+    // MOBILE CARD
+    const mc=document.getElementById('mobCard');mc.classList.add('show');
+    document.getElementById('mobSerial').textContent=id;
+    document.getElementById('mobMat').textContent=p.mat;
+    document.getElementById('mobOp').textContent=st?st.name+' '+st.name2:stText;
+    document.getElementById('mobVM').textContent=p.vm;
+    const fsEl=document.getElementById('mobFS');
+    fsEl.style.color=parseFloat(p.fs)<2?'var(--red)':'var(--green)';
+    fsEl.textContent=p.fs;
+    document.getElementById('mobEnd').textContent=p.end;
+    document.getElementById('mobCost').textContent=p.cost;
+    const mb=document.getElementById('mobBadge');
+    mb.className='mob-badge badge '+p.bc;
+    mb.textContent=stText;
+  } else {
+    // DESKTOP CARD
+    document.getElementById('hcard').classList.add('show');
+    document.getElementById('hcSer').textContent=id;
+    document.getElementById('hcMat').textContent=p.mat;
+    document.getElementById('hcOp').textContent=st?st.name+' '+st.name2:stText;
+    document.getElementById('hcVM').textContent=p.vm;
+    const fsEl=document.getElementById('hcFS');
+    fsEl.className='hc-val '+(parseFloat(p.fs)<2?'red':'grn');
+    fsEl.textContent=p.fs;
+    document.getElementById('hcEnd').textContent=p.end;
+    document.getElementById('hcCost').textContent=p.cost;
+    const badge=document.getElementById('hcBadge');
+    badge.className='badge '+p.bc;badge.textContent=stText;
+    document.querySelectorAll('.stn-box').forEach(b=>b.style.outline='none');
+    if(st){const el=document.getElementById('sb-'+st.id);if(el){el.style.outline='2px solid var(--acc)';}}
+  }
+
+  if(p.rej&&!alertShown){
+    alertShown=true;
+    document.body.classList.add('alert-flash');
+    document.getElementById('alertBar').classList.add('show');
+    document.getElementById('alertTxt').textContent=(lang==='ro'?'REBUT: ':'REJECT: ')+id+' — '+(lang==='ro'?p.stRO:p.stEN);
+    setTimeout(()=>document.body.classList.remove('alert-flash'),700);
+    try{const ac=new(window.AudioContext||window.webkitAudioContext)();const o=ac.createOscillator();const g=ac.createGain();o.connect(g);g.connect(ac.destination);o.frequency.value=440;g.gain.value=0.05;o.start();o.stop(ac.currentTime+0.3);}catch(e){}
+  }
+  buildQR();
+}
+
+function closeAlert(){document.getElementById('alertBar').classList.remove('show');}
+
+function simTick(){
+  tick++;
+  Object.entries(PIECES).forEach(([id,p])=>{
+    if(p.done||p.rej)return;
+    const el=document.getElementById('sp-'+id);
+    if(el){p.prog=Math.min(100,p.prog+simSpd*0.3);el.style.width=p.prog+'%';
+      if(p.prog>=100){p.prog=0;const maxSt=(p.type==='cnc'?CNC_STS:FDM_STS).length-1;
+        if(p.st<maxSt){p.st++;buildLine('cncLine',CNC_STS,'cnc');buildLine('fdmLine',FDM_STS,'fdm');if(p.st===maxSt)p.done=true;}}}
+  });
+  if(tick%20===0){
+    wearLvl=wearLvl.map((v,i)=>Math.min(100,v+(i===2?0.4:0.2)*simSpd));buildWear();
+    plaUsed=Math.min(240,plaUsed+0.8*simSpd);
+    const lvl=Math.round(100-plaUsed/3.2);
+    const pu=document.getElementById('plaUsed');if(pu)pu.textContent=Math.round(plaUsed)+' g';
+    const pl=document.getElementById('plaLvl');if(pl)pl.textContent=lvl+'%';
+    const pb=document.getElementById('plaBar');if(pb){pb.style.width=lvl+'%';pb.className='pf '+(lvl>50?'amb':lvl>20?'amb':'red');}
+    const sc=document.getElementById('sCNC');if(sc)sc.textContent=(48-Object.values(PIECES).filter(p=>p.type==='cnc').length)+' buc.';
+    const sp=document.getElementById('sPLA');if(sp)sp.textContent=(3.20-plaUsed/1000).toFixed(2)+' kg';
+  }
+  updateKPIs();
+}
+
+function updateKPIs(){
+  const done=Object.values(PIECES).filter(p=>p.done).length;
+  const rej=Object.values(PIECES).filter(p=>p.rej).length;
+  const prog=Object.values(PIECES).filter(p=>!p.done&&!p.rej).length;
+  const kd=document.getElementById('kDone');if(kd)kd.textContent=done;
+  const kr=document.getElementById('kRej');if(kr)kr.textContent=rej;
+  const kp=document.getElementById('kProg');if(kp)kp.textContent=prog;
+  const cncRej=Object.values(PIECES).filter(p=>p.type==='cnc'&&p.rej).length;
+  const fdmRej=Object.values(PIECES).filter(p=>p.type==='fdm'&&p.rej).length;
+  const rc=document.getElementById('rCNC');if(rc)rc.textContent=(cncRej*11.49).toFixed(2)+' €';
+  const rf=document.getElementById('rFDM');if(rf)rf.textContent=(fdmRej*3.30).toFixed(2)+' €';
+  const tt=document.getElementById('tTotal');if(tt)tt.textContent=(3*11.49+3*3.30-(cncRej*11.49+fdmRej*3.30)).toFixed(2)+' €';
+}
+
+function setSpd(v,btn){simSpd=v;document.querySelectorAll('.spd-btn').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');}
+
+function resetSim(){
+  Object.assign(PIECES,{
+    'EFT-2026-001':{type:'cnc',st:2,prog:45,color:'blue',stRO:'În prelucrare CNC',stEN:'CNC machining',mat:'20MoNi35 / CNC',vm:'41.22 MPa',fs:'15.0',end:'—',cost:'11.49 €',bc:'blue',rej:false,done:false},
+    'EFT-2026-002':{type:'cnc',st:5,prog:60,color:'yellow',stRO:'La inspecție END',stEN:'NDT inspection',mat:'20MoNi35 / CNC',vm:'41.22 MPa',fs:'15.0',end:'În curs',cost:'11.49 €',bc:'acc',rej:false,done:false},
+    'EFT-2026-003':{type:'cnc',st:6,prog:100,color:'green',stRO:'Acceptată — livrare',stEN:'Accepted — delivery',mat:'20MoNi35 / CNC',vm:'41.22 MPa',fs:'15.0',end:'EV✓ PT✓ MT✓',cost:'11.49 €',bc:'grn',rej:false,done:true},
+    'EFT-2026-004':{type:'fdm',st:2,prog:35,color:'amber',stRO:'În imprimare FDM',stEN:'FDM printing',mat:'PLA / FDM',vm:'41.26 MPa',fs:'1.21',end:'—',cost:'3.30 €',bc:'amb',rej:false,done:false},
+    'EFT-2026-005':{type:'fdm',st:5,prog:80,color:'yellow',stRO:'La inspecție END',stEN:'NDT inspection',mat:'PLA / FDM',vm:'41.26 MPa',fs:'1.21',end:'În curs',cost:'3.30 €',bc:'acc',rej:false,done:false},
+    'EFT-2026-006':{type:'fdm',st:3,prog:0,color:'red',stRO:'REBUT — neconformă',stEN:'REJECTED — nonconforming',mat:'PLA / FDM',vm:'41.26 MPa',fs:'1.21',end:'PT✗ delaminare',cost:'3.30 €',bc:'red',rej:true,done:false},
+  });
+  tick=0;wearLvl=[18,12,25,8,15];plaUsed=0;alertShown=false;activeId=null;
+  document.getElementById('hcard').classList.remove('show');
+  document.getElementById('mobCard').classList.remove('show');
+  closeAlert();
+  buildLine('cncLine',CNC_STS,'cnc');buildLine('fdmLine',FDM_STS,'fdm');
+  buildQR();buildWear();updateKPIs();
+}
+
+function setLang(l){
+  lang=l;
+  document.getElementById('bRO').className='lang-btn'+(l==='ro'?' active':'');
+  document.getElementById('bEN').className='lang-btn'+(l==='en'?' active':'');
+  document.querySelectorAll('[data-ro]').forEach(el=>{if(el.tagName!=='INPUT'&&!el.id){el.textContent=l==='ro'?el.dataset.ro:(el.dataset.en||el.dataset.ro);}});
+  buildQR();if(activeId)selectPiece(activeId);
+}
+
+function checkURL(){
+  const p=new URLSearchParams(window.location.search);const id=p.get('id');
+  if(id&&PIECES[id])setTimeout(()=>selectPiece(id),400);
+}
+
+function updateClock(){const n=new Date();const el=document.getElementById('clk');if(el)el.textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');}
+
+buildLine('cncLine',CNC_STS,'cnc');buildLine('fdmLine',FDM_STS,'fdm');
+buildQR();buildWear();updateKPIs();checkURL();
+setInterval(simTick,1000/simSpd);
+setInterval(updateClock,1000);updateClock();
+</script>
+</body>
+</html>
